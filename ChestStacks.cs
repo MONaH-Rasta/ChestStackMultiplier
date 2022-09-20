@@ -1,12 +1,11 @@
 ﻿using Newtonsoft.Json;
 using Oxide.Core.Plugins;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.3.3")]
+    [Info("ChestStacks", "MON@H", "1.3.4")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -27,7 +26,7 @@ namespace Oxide.Plugins
             public GlobalSettings globalSettings = new GlobalSettings();
 
             [JsonProperty(PropertyName = "Stack settings")]
-            public ChatSettings stacksSettings = new ChatSettings();
+            public StackSettings stacksSettings = new StackSettings();
 
             public class GlobalSettings
             {
@@ -35,10 +34,10 @@ namespace Oxide.Plugins
                 public float defaultContainerMultiplier = 1f;
             }
 
-            public class ChatSettings
+            public class StackSettings
             {
                 [JsonProperty(PropertyName = "Containers list (shortPrefabName: multiplier)")]
-                public Dictionary<string, float> containers = new Dictionary<string, float>()
+                public SortedDictionary<string, float> containers = new SortedDictionary<string, float>()
                 {
                     {"autoturret_deployed", 1f},
                     {"bbq.deployed", 1f},
@@ -165,8 +164,15 @@ namespace Oxide.Plugins
 
         object CanMoveItem(Item movedItem, PlayerInventory playerInventory, uint targetContainerID, int targetSlot, int amount)
         {
-            if (WeightSystemLoaded()) return null;
-            if (movedItem == null || playerInventory == null) return null;
+            if (WeightSystemLoaded())
+            {
+                return null;
+            }
+
+            if (movedItem == null || playerInventory == null)
+            {
+                return null;
+            }
 
             var container = playerInventory.FindContainer(targetContainerID);
             var player = playerInventory.GetComponent<BasePlayer>();
@@ -177,12 +183,19 @@ namespace Oxide.Plugins
             //Puts($"TargetSlot {targetSlot} Amount {amount} TargetContainer {targetContainerID}");
 
             // Right-Click Overstack into Player Inventory
-            if (targetSlot == -1)  
+            if (targetSlot == -1)
             {
-                if (lootContainer == null) 
+                if (lootContainer == null)
                 {
                     if (movedItem.amount > movedItem.info.stackable)
                     {
+                        //to prevent player able to "steal" overstacked items in trades
+                        ShopFront shopFront = movedItem.parent?.entityOwner?.GetComponent<ShopFront>();
+                        if (shopFront != null)
+                        {
+                            return null;
+                        }
+
                         int loops = 1;
                         if (player != null && player.serverInput.IsDown(BUTTON.SPRINT))
                         {
@@ -232,20 +245,20 @@ namespace Oxide.Plugins
                 {
                     if (player != null && player.serverInput.IsDown(BUTTON.SPRINT))
                     {
-                        foreach (var item in playerInventory.containerMain.itemList.Where(x => x.info == movedItem.info).ToList())
-                        {
-                            if (!item.MoveToContainer(lootContainer))
-                            {
+                        for (var i = 0; i < playerInventory.containerMain.itemList.Count; i++)
+                        {//.Where(x => x.info == movedItem.info).ToList()
+                            var item = playerInventory.containerMain.itemList[i];
+                            if (item.info == movedItem.info && !item.MoveToContainer(lootContainer))
                                 continue;
-                            }
                         }
-                        foreach (var item in playerInventory.containerBelt.itemList.Where(x => x.info == movedItem.info).ToList())
-                        {
-                            if (!item.MoveToContainer(lootContainer))
-                            {
+
+                        for (var i = 0; i < playerInventory.containerBelt.itemList.Count; i++)
+                        {//.Where(x => x.info == movedItem.info).ToList()
+                            var item = playerInventory.containerBelt.itemList[i];
+                            if (item.info == movedItem.info && !item.MoveToContainer(lootContainer))
                                 continue;
-                            }
                         }
+
                         playerInventory.ServerUpdate(0f);
                         return false;
                     }
@@ -349,6 +362,7 @@ namespace Oxide.Plugins
             {
                 return 1f;
             }
+
             return GetStackSize(entity);
         }
 
@@ -370,11 +384,13 @@ namespace Oxide.Plugins
                 {
                     return false;
                 }
+
                 if (!splitItem.MoveToContainer(targetContainer, targetSlot))
                 {
                     item.amount += splitItem.amount;
                     splitItem.Remove();
                 }
+
                 return true;
             }
 
@@ -390,11 +406,13 @@ namespace Oxide.Plugins
                 {
                     return false;
                 }
+
                 if (!inventory.GiveItem(splitItem))
                 {
                     item.amount += splitItem.amount;
                     splitItem.Remove();
                 }
+
                 return true;
             }
 
@@ -430,15 +448,9 @@ namespace Oxide.Plugins
             }
 
             configData.stacksSettings.containers[containerName] = configData.globalSettings.defaultContainerMultiplier;
-            configData.stacksSettings.containers = SortDictionary(configData.stacksSettings.containers);
             SaveConfig();
-            return configData.globalSettings.defaultContainerMultiplier;
-        }
 
-        private Dictionary<string, float> SortDictionary(Dictionary<string, float> dic)
-        {
-            return dic.OrderBy(key => key.Key)
-                .ToDictionary(key => key.Key, value => value.Value);
+            return configData.globalSettings.defaultContainerMultiplier;
         }
 
         #endregion Helpers
