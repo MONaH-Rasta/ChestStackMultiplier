@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using Newtonsoft.Json;
@@ -6,7 +6,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.3.0")]
+    [Info("ChestStacks", "MON@H", "1.3.1")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -15,7 +15,7 @@ namespace Oxide.Plugins
 
         [PluginReference] private RustPlugin WeightSystem;
 
-        #endregion
+        #endregion Class Fields
 
         #region Initialization
 
@@ -49,61 +49,61 @@ namespace Oxide.Plugins
                 [JsonProperty(PropertyName = "Containers list (shortPrefabName: multiplier)")]
                 public Dictionary<string, int> containers = new Dictionary<string, int>()
                 {
-                        {"autoturret_deployed", 1},
-                        {"bbq.deployed", 1},
-                        {"bigwheelbettingterminal", 1},
-                        {"box.wooden.large", 1},
-                        {"campfire", 1},
-                        {"coffinstorage", 1},
-                        {"composter", 1},
-                        {"crudeoutput", 1},
-                        {"cupboard.tool.deployed", 1},
-                        {"cursedcauldron.deployed", 1},
-                        {"engine", 1},
-                        {"excavator_output_pile", 1},
-                        {"fireplace.deployed", 1},
-                        {"fridge.deployed", 1},
-                        {"fuel_storage", 1},
-                        {"fuelstorage", 1},
-                        {"furnace", 1},
-                        {"furnace.large", 1},
-                        {"fusebox", 1},
-                        {"guntrap.deployed", 1},
-                        {"hitchtrough.deployed", 1},
-                        {"hopperoutput", 1},
-                        {"item_drop", 1},
-                        {"item_drop_backpack", 1},
-                        {"lantern.deployed", 1},
-                        {"locker.deployed", 1},
-                        {"mixingtable.deployed", 1},
-                        {"modular_car_fuel_storage", 1},
-                        {"npcvendingmachine_attire", 1},
-                        {"npcvendingmachine_components", 1},
-                        {"npcvendingmachine_extra", 1},
-                        {"npcvendingmachine_farming", 1},
-                        {"npcvendingmachine_resources", 1},
-                        {"planter.large.deployed", 1},
-                        {"recycler_static", 1},
-                        {"refinery_small_deployed", 1},
-                        {"repairbench_deployed", 1},
-                        {"repairbench_static", 1},
-                        {"researchtable_deployed", 1},
-                        {"researchtable_static", 1},
-                        {"rowboat_storage", 1},
-                        {"shopkeeper_vm_invis", 1},
-                        {"skull_fire_pit", 1},
-                        {"small_refinery_static", 1},
-                        {"supply_drop", 1},
-                        {"survivalfishtrap.deployed", 1},
-                        {"testridablehorse", 1},
-                        {"vendingmachine.deployed", 1},
-                        {"water.pump.deployed", 1},
-                        {"waterbarrel", 1},
-                        {"woodbox_deployed", 1},
-                        {"workbench1.deployed", 1},
-                        {"workbench1.static", 1},
-                        {"workbench2.deployed", 1},
-                        {"workbench3.deployed", 1}
+                    {"autoturret_deployed", 1},
+                    {"bbq.deployed", 1},
+                    {"bigwheelbettingterminal", 1},
+                    {"box.wooden.large", 1},
+                    {"campfire", 1},
+                    {"coffinstorage", 1},
+                    {"composter", 1},
+                    {"crudeoutput", 1},
+                    {"cupboard.tool.deployed", 1},
+                    {"cursedcauldron.deployed", 1},
+                    {"engine", 1},
+                    {"excavator_output_pile", 1},
+                    {"fireplace.deployed", 1},
+                    {"fridge.deployed", 1},
+                    {"fuel_storage", 1},
+                    {"fuelstorage", 1},
+                    {"furnace", 1},
+                    {"furnace.large", 1},
+                    {"fusebox", 1},
+                    {"guntrap.deployed", 1},
+                    {"hitchtrough.deployed", 1},
+                    {"hopperoutput", 1},
+                    {"item_drop", 1},
+                    {"item_drop_backpack", 1},
+                    {"lantern.deployed", 1},
+                    {"locker.deployed", 1},
+                    {"mixingtable.deployed", 1},
+                    {"modular_car_fuel_storage", 1},
+                    {"npcvendingmachine_attire", 1},
+                    {"npcvendingmachine_components", 1},
+                    {"npcvendingmachine_extra", 1},
+                    {"npcvendingmachine_farming", 1},
+                    {"npcvendingmachine_resources", 1},
+                    {"planter.large.deployed", 1},
+                    {"recycler_static", 1},
+                    {"refinery_small_deployed", 1},
+                    {"repairbench_deployed", 1},
+                    {"repairbench_static", 1},
+                    {"researchtable_deployed", 1},
+                    {"researchtable_static", 1},
+                    {"rowboat_storage", 1},
+                    {"shopkeeper_vm_invis", 1},
+                    {"skull_fire_pit", 1},
+                    {"small_refinery_static", 1},
+                    {"supply_drop", 1},
+                    {"survivalfishtrap.deployed", 1},
+                    {"testridablehorse", 1},
+                    {"vendingmachine.deployed", 1},
+                    {"water.pump.deployed", 1},
+                    {"waterbarrel", 1},
+                    {"woodbox_deployed", 1},
+                    {"workbench1.deployed", 1},
+                    {"workbench1.static", 1},
+                    {"workbench2.deployed", 1},
+                    {"workbench3.deployed", 1}
                 };
             }
         }
@@ -134,11 +134,6 @@ namespace Oxide.Plugins
         protected override void SaveConfig() => Config.WriteObject(configData);
 
         #endregion Configuration
-
-        private bool WeightSystemLoaded()
-        {
-            return WeightSystem != null && WeightSystem.IsLoaded;
-        }
 
         #region Hooks
 
@@ -179,10 +174,8 @@ namespace Oxide.Plugins
 
         object CanMoveItem(Item movedItem, PlayerInventory playerInventory, uint targetContainerID, int targetSlot, int amount)
         {
-            if (WeightSystemLoaded())
-            {
-                return null;
-            }
+            if (WeightSystemLoaded()) return null;
+            if (movedItem == null || playerInventory == null) return null;
 
             var container = playerInventory.FindContainer(targetContainerID);
             var player = playerInventory.GetComponent<BasePlayer>();
@@ -192,17 +185,15 @@ namespace Oxide.Plugins
 
             //Puts($"TargetSlot {targetSlot} Amount {amount} TargetContainer {targetContainerID}");
 
-            #region Right-Click Overstack into Player Inventory
-
+            // Right-Click Overstack into Player Inventory
             if (targetSlot == -1)  
             {
-                //Right click overstacks into player inventory
                 if (lootContainer == null) 
                 {
                     if (movedItem.amount > movedItem.info.stackable)
                     {
                         int loops = 1;
-                        if (player.serverInput.IsDown(BUTTON.SPRINT))
+                        if (player != null && player.serverInput.IsDown(BUTTON.SPRINT))
                         {
                             loops = Mathf.CeilToInt((float)movedItem.amount / movedItem.info.stackable);
                         }
@@ -245,10 +236,10 @@ namespace Oxide.Plugins
                         return false;
                     }
                 }
-                //Shift Right click into storage container
+                // Shift Right click into storage container
                 else
                 {
-                    if (player.serverInput.IsDown(BUTTON.SPRINT))
+                    if (player != null && player.serverInput.IsDown(BUTTON.SPRINT))
                     {
                         foreach (var item in playerInventory.containerMain.itemList.Where(x => x.info == movedItem.info).ToList())
                         {
@@ -269,32 +260,25 @@ namespace Oxide.Plugins
                     }
                 }
             }
-
-            #endregion
-
-            #region Moving Overstacks Around In Chest
-
+            // Moving Overstacks Around In Chest
             if (amount > movedItem.info.stackable && lootContainer != null)
             {
                 var targetItem = container.GetSlot(targetSlot);
                 if (targetItem == null)
-                {
-                    //Split item into chest
+                {// Split item into chest
                     if (amount < movedItem.amount)
                     {
                         ItemHelper.SplitMoveItem(movedItem, amount, container, targetSlot);
                     }
                     else
-                    {
-                        //Moving items when amount > info.stacksize
+                    {// Moving items when amount > info.stacksize
                         movedItem.MoveToContainer(container, targetSlot);
                     }
                 }
                 else
                 {
                     if (!targetItem.CanStack(movedItem) && amount == movedItem.amount)
-                    {
-                        //Swapping positions of items
+                    {// Swapping positions of items
                         ItemHelper.SwapItems(movedItem, targetItem);
                     }
                     else
@@ -307,18 +291,14 @@ namespace Oxide.Plugins
                         {
                             movedItem.MoveToContainer(container, targetSlot);
                         }
-                        //Stacking items when amount > info.stacksize
-
+                        // Stacking items when amount > info.stacksize
                     }
                 }
                 playerInventory.ServerUpdate(0f);
                 return false;
             }
 
-            #endregion
-
-            #region Prevent Moving Overstacks To Inventory  
-
+            // Prevent Moving Overstacks To Inventory
             if (lootContainer != null)
             {
                 var targetItem = container.GetSlot(targetSlot);
@@ -337,42 +317,10 @@ namespace Oxide.Plugins
                 }
             }
 
-            #endregion
-
             return null;
         }
         
-        //Hook not implmented, using OnItemDropped for now
-        object OnDropItem(PlayerInventory inventory, Item item, int amount)
-        {
-            /*var player = inventory.GetComponent<BasePlayer>();
-            if (inventory.loot.entitySource == null)
-            {
-                return null;
-            }
-            if (item.amount > item.info.stackable)
-            {
-                int loops = Mathf.CeilToInt((float)item.amount / item.info.stackable);
-                for (int i = 0; i < loops; i++)
-                {
-                    if (item.amount <= item.info.stackable)
-                    {
-                        item.Drop(player.eyes.position, player.eyes.BodyForward() * 4f + Vector3Ex.Range(-1f, 1f));
-                        break;
-                    }
-                    var splitItem = item.SplitItem(item.info.stackable);
-                    if (splitItem != null)
-                    {
-                        splitItem.Drop(player.eyes.position, player.eyes.BodyForward() * 4f + Vector3Ex.Range(-1f, 1f));
-                    }
-                }
-                player.SignalBroadcast(BaseEntity.Signal.Gesture, "drop_item", null);
-                return false;
-            }*/
-            return null;
-        }
-
-        //Covers dropping overstacks from chests onto the ground
+        // Covers dropping overstacks from chests onto the ground
         void OnItemDropped(Item item, BaseEntity entity)
         {
             item.RemoveFromContainer();
@@ -398,8 +346,7 @@ namespace Oxide.Plugins
                 }
             }
         }
-
-        #endregion
+        #endregion Hooks
 
         #region Plugin API
 
@@ -413,9 +360,14 @@ namespace Oxide.Plugins
             return GetStackSize(entity);
         }
 
-        #endregion
+        #endregion Plugin API
 
         #region Helpers
+
+        private bool WeightSystemLoaded()
+        {
+            return WeightSystem != null && WeightSystem.IsLoaded;
+        }
 
         public class ItemHelper
         {
@@ -474,7 +426,7 @@ namespace Oxide.Plugins
                 return 1;
             }
 
-            return GetContainerMultiplier(entity.ShortPrefabName);;
+            return GetContainerMultiplier(entity.ShortPrefabName);
         }
 
         private int GetContainerMultiplier(string containerName)
