@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.4.4")]
+    [Info("ChestStacks", "MON@H", "1.4.5")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -38,7 +38,7 @@ namespace Oxide.Plugins
             }
 
             _backpackPrefabID = 1;
-            while (StringPool.Get(_backpackPrefabID) != string.Empty)
+            while (StringPool.toString.ContainsKey(_backpackPrefabID))
             {
                 _backpackPrefabID += 1;
             }
@@ -479,15 +479,19 @@ namespace Oxide.Plugins
             uint id = 0;
             foreach (KeyValuePair<string, float> container in _configData.StacksSettings.Containers)
             {
-                id = StringPool.Get(container.Key);
-                if (id > 0)
+                if (container.Key == "Backpack")
                 {
-                    _multipliersCache[id] = container.Value;
-                    id = 0;
+                    _multipliersCache[_backpackPrefabID] = _configData.StacksSettings.Containers["Backpack"];
+                }
+                else
+                {
+                    id = StringPool.Get(container.Key);
+                    if (id > 0)
+                    {
+                        _multipliersCache[id] = container.Value;
+                    }
                 }
             }
-
-            _multipliersCache[_backpackPrefabID] = _configData.StacksSettings.Containers["Backpack"];
         }
 
         private bool WeightSystemLoaded()
