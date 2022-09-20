@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.3.2")]
+    [Info("ChestStacks", "MON@H", "1.3.3")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -314,6 +314,7 @@ namespace Oxide.Plugins
         // Covers dropping overstacks from chests onto the ground
         void OnItemDropped(Item item, BaseEntity entity)
         {
+            if (item == null || entity == null) return;
             item.RemoveFromContainer();
             int stackSize = item.MaxStackable();
             if (item.amount > stackSize)
