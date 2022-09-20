@@ -1,10 +1,10 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.4.0")]
+    [Info("ChestStacks", "MON@H", "1.4.1")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -27,7 +27,7 @@ namespace Oxide.Plugins
 
         private void OnServerInitialized()
         {
-            CreateMultipliersCacheCache();
+            CreateMultipliersCache();
             Subscribe(nameof(CanMoveItem));
             Subscribe(nameof(OnItemDropped));
             Subscribe(nameof(OnMaxStackable));
@@ -220,7 +220,7 @@ namespace Oxide.Plugins
                 {
                     TargetContainer = null;
                     float stackMultiplier = GetStackMultiplier(entity);
-                    if (stackMultiplier > 1)
+                    if (stackMultiplier != 1)
                     {
                         return Mathf.FloorToInt(stackMultiplier * item.info.stackable);
                     }
@@ -230,7 +230,7 @@ namespace Oxide.Plugins
             if (item?.parent?.entityOwner != null)
             {
                 float stackMultiplier = GetStackMultiplier(item.parent.entityOwner);
-                if (stackMultiplier > 1)
+                if (stackMultiplier != 1)
                 {
                     return Mathf.FloorToInt(stackMultiplier * item.info.stackable);
                 }
@@ -444,7 +444,7 @@ namespace Oxide.Plugins
 
         #region Helpers
 
-        private void CreateMultipliersCacheCache()
+        private void CreateMultipliersCache()
         {
             uint id = 0;
             foreach (KeyValuePair<string, float> container in _configData.stacksSettings.Containers)
@@ -555,7 +555,7 @@ namespace Oxide.Plugins
             _configData.stacksSettings.Containers[prefabName] = multiplier;
             SaveConfig();
             _multipliersCache.Clear();
-            CreateMultipliersCacheCache();
+            CreateMultipliersCache();
 
             return multiplier;
         }
