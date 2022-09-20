@@ -1,10 +1,10 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.4.1")]
+    [Info("ChestStacks", "MON@H", "1.4.2")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -327,14 +327,14 @@ namespace Oxide.Plugins
                         List<Item> itemsToMove = new List<Item>();
                         foreach (Item item in playerInventory.containerMain.itemList)
                         {
-                            if (item.info.itemid == movedItem.info.itemid)
+                            if (item.info.itemid == movedItem.info.itemid && item != movedItem)
                             {
                                 itemsToMove.Add(item);
                             }
                         }
                         foreach (Item item in playerInventory.containerBelt.itemList)
                         {
-                            if (item.info.itemid == movedItem.info.itemid)
+                            if (item.info.itemid == movedItem.info.itemid && item != movedItem)
                             {
                                 itemsToMove.Add(item);
                             }
@@ -349,7 +349,7 @@ namespace Oxide.Plugins
                         }
 
                         playerInventory.ServerUpdate(0f);
-                        return false;
+                        return null;
                     }
                 }
             }
