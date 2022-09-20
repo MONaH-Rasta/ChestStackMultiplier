@@ -1,12 +1,12 @@
-using System.Collections.Generic;
-using UnityEngine;
-using System.Linq;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Oxide.Core.Plugins;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.3.1")]
+    [Info("ChestStacks", "MON@H", "1.3.2")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
@@ -16,15 +16,6 @@ namespace Oxide.Plugins
         [PluginReference] private RustPlugin WeightSystem;
 
         #endregion Class Fields
-
-        #region Initialization
-
-        private void OnServerInitialized()
-        {
-            SaveConfig();
-        }
-
-        #endregion Initialization
 
         #region Configuration
 
@@ -41,69 +32,69 @@ namespace Oxide.Plugins
             public class GlobalSettings
             {
                 [JsonProperty(PropertyName = "Default Multiplier for new containers")]
-                public int defaultContainerMultiplier = 1;
+                public float defaultContainerMultiplier = 1f;
             }
 
             public class ChatSettings
             {
                 [JsonProperty(PropertyName = "Containers list (shortPrefabName: multiplier)")]
-                public Dictionary<string, int> containers = new Dictionary<string, int>()
+                public Dictionary<string, float> containers = new Dictionary<string, float>()
                 {
-                    {"autoturret_deployed", 1},
-                    {"bbq.deployed", 1},
-                    {"bigwheelbettingterminal", 1},
-                    {"box.wooden.large", 1},
-                    {"campfire", 1},
-                    {"coffinstorage", 1},
-                    {"composter", 1},
-                    {"crudeoutput", 1},
-                    {"cupboard.tool.deployed", 1},
-                    {"cursedcauldron.deployed", 1},
-                    {"engine", 1},
-                    {"excavator_output_pile", 1},
-                    {"fireplace.deployed", 1},
-                    {"fridge.deployed", 1},
-                    {"fuel_storage", 1},
-                    {"fuelstorage", 1},
-                    {"furnace", 1},
-                    {"furnace.large", 1},
-                    {"fusebox", 1},
-                    {"guntrap.deployed", 1},
-                    {"hitchtrough.deployed", 1},
-                    {"hopperoutput", 1},
-                    {"item_drop", 1},
-                    {"item_drop_backpack", 1},
-                    {"lantern.deployed", 1},
-                    {"locker.deployed", 1},
-                    {"mixingtable.deployed", 1},
-                    {"modular_car_fuel_storage", 1},
-                    {"npcvendingmachine_attire", 1},
-                    {"npcvendingmachine_components", 1},
-                    {"npcvendingmachine_extra", 1},
-                    {"npcvendingmachine_farming", 1},
-                    {"npcvendingmachine_resources", 1},
-                    {"planter.large.deployed", 1},
-                    {"recycler_static", 1},
-                    {"refinery_small_deployed", 1},
-                    {"repairbench_deployed", 1},
-                    {"repairbench_static", 1},
-                    {"researchtable_deployed", 1},
-                    {"researchtable_static", 1},
-                    {"rowboat_storage", 1},
-                    {"shopkeeper_vm_invis", 1},
-                    {"skull_fire_pit", 1},
-                    {"small_refinery_static", 1},
-                    {"supply_drop", 1},
-                    {"survivalfishtrap.deployed", 1},
-                    {"testridablehorse", 1},
-                    {"vendingmachine.deployed", 1},
-                    {"water.pump.deployed", 1},
-                    {"waterbarrel", 1},
-                    {"woodbox_deployed", 1},
-                    {"workbench1.deployed", 1},
-                    {"workbench1.static", 1},
-                    {"workbench2.deployed", 1},
-                    {"workbench3.deployed", 1}
+                    {"autoturret_deployed", 1f},
+                    {"bbq.deployed", 1f},
+                    {"bigwheelbettingterminal", 1f},
+                    {"box.wooden.large", 1f},
+                    {"campfire", 1f},
+                    {"coffinstorage", 1f},
+                    {"composter", 1f},
+                    {"crudeoutput", 1f},
+                    {"cupboard.tool.deployed", 1f},
+                    {"cursedcauldron.deployed", 1f},
+                    {"engine", 1f},
+                    {"excavator_output_pile", 1f},
+                    {"fireplace.deployed", 1f},
+                    {"fridge.deployed", 1f},
+                    {"fuel_storage", 1f},
+                    {"fuelstorage", 1f},
+                    {"furnace", 1f},
+                    {"furnace.large", 1f},
+                    {"fusebox", 1f},
+                    {"guntrap.deployed", 1f},
+                    {"hitchtrough.deployed", 1f},
+                    {"hopperoutput", 1f},
+                    {"item_drop", 1f},
+                    {"item_drop_backpack", 1f},
+                    {"lantern.deployed", 1f},
+                    {"locker.deployed", 1f},
+                    {"mixingtable.deployed", 1f},
+                    {"modular_car_fuel_storage", 1f},
+                    {"npcvendingmachine_attire", 1f},
+                    {"npcvendingmachine_components", 1f},
+                    {"npcvendingmachine_extra", 1f},
+                    {"npcvendingmachine_farming", 1f},
+                    {"npcvendingmachine_resources", 1f},
+                    {"planter.large.deployed", 1f},
+                    {"recycler_static", 1f},
+                    {"refinery_small_deployed", 1f},
+                    {"repairbench_deployed", 1f},
+                    {"repairbench_static", 1f},
+                    {"researchtable_deployed", 1f},
+                    {"researchtable_static", 1f},
+                    {"rowboat_storage", 1f},
+                    {"shopkeeper_vm_invis", 1f},
+                    {"skull_fire_pit", 1f},
+                    {"small_refinery_static", 1f},
+                    {"supply_drop", 1f},
+                    {"survivalfishtrap.deployed", 1f},
+                    {"testridablehorse", 1f},
+                    {"vendingmachine.deployed", 1f},
+                    {"water.pump.deployed", 1f},
+                    {"waterbarrel", 1f},
+                    {"woodbox_deployed", 1f},
+                    {"workbench1.deployed", 1f},
+                    {"workbench1.static", 1f},
+                    {"workbench2.deployed", 1f},
+                    {"workbench3.deployed", 1f}
                 };
             }
         }
@@ -419,19 +410,19 @@ namespace Oxide.Plugins
             }
         }
 
-        public int GetStackSize(BaseEntity entity)
+        public float GetStackSize(BaseEntity entity)
         {
             if (entity is LootContainer || entity is BaseCorpse || entity is BasePlayer)
             {
-                return 1;
+                return 1f;
             }
 
             return GetContainerMultiplier(entity.ShortPrefabName);
         }
 
-        private int GetContainerMultiplier(string containerName)
+        private float GetContainerMultiplier(string containerName)
         {
-            int multiplier;
+            float multiplier;
             if (configData.stacksSettings.containers.TryGetValue(containerName, out multiplier))
             {
                 return multiplier;
@@ -443,7 +434,7 @@ namespace Oxide.Plugins
             return configData.globalSettings.defaultContainerMultiplier;
         }
 
-        private Dictionary<string, int> SortDictionary(Dictionary<string, int> dic)
+        private Dictionary<string, float> SortDictionary(Dictionary<string, float> dic)
         {
             return dic.OrderBy(key => key.Key)
                 .ToDictionary(key => key.Key, value => value.Value);
