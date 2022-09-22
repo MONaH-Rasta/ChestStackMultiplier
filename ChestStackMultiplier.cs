@@ -5,10 +5,10 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Chest Stack Multipier", "MON@H", "1.5.0")]
+    [Info("Chest Stack Multiplier", "MON@H", "1.5.0")]
     [Description("Higher stack sizes in storage containers.")]
 
-    public class ChestStackMultipier : RustPlugin //Hobobarrel_static, item_drop
+    public class ChestStackMultiplier : RustPlugin //Hobobarrel_static, item_drop
     {
         #region Variables
 
