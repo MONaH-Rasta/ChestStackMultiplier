@@ -1,20 +1,25 @@
+﻿using Facepunch;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("ChestStacks", "MON@H", "1.4.5")]
+    [Info("Chest Stack Multipier", "MON@H", "1.5.0")]
     [Description("Higher stack sizes in storage containers.")]
 
-    public class ChestStacks : RustPlugin //Hobobarrel_static, item_drop
+    public class ChestStackMultipier : RustPlugin //Hobobarrel_static, item_drop
     {
         #region Variables
 
         [PluginReference] private RustPlugin WeightSystem;
-        private readonly Hash<ulong, float> _multipliersCache = new Hash<ulong, float>();
-        private uint _playerPrefabID;
+        private readonly Hash<ulong, float> _cacheMultipliers = new Hash<ulong, float>();
+        private readonly HashSet<uint> _cacheBackpackContainers = new HashSet<uint>();
+        private readonly HashSet<uint> _cacheBackpackEntities = new HashSet<uint>();
+        private float _multiplier;
+        private ItemContainer _targetContainer;
         private uint _backpackPrefabID;
+        private uint _playerPrefabID;
 
         #endregion Variables
 
@@ -22,31 +27,14 @@ namespace Oxide.Plugins
 
         private void Init()
         {
-            Unsubscribe(nameof(CanMoveItem));
-            Unsubscribe(nameof(OnItemDropped));
-            Unsubscribe(nameof(OnMaxStackable));
+            HooksUnsubscribe();
         }
 
         private void OnServerInitialized()
         {
-            _playerPrefabID = StringPool.Get("assets/prefabs/player/player.prefab");
-
-            if (!_configData.StacksSettings.Containers.ContainsKey("Backpack"))
-            {
-                _configData.StacksSettings.Containers["Backpack"] = _configData.GlobalSettings.DefaultContainerMultiplier;
-                SaveConfig();
-            }
-
-            _backpackPrefabID = 1;
-            while (StringPool.toString.ContainsKey(_backpackPrefabID))
-            {
-                _backpackPrefabID += 1;
-            }
-
-            CreateMultipliersCache();
-            Subscribe(nameof(CanMoveItem));
-            Subscribe(nameof(OnItemDropped));
-            Subscribe(nameof(OnMaxStackable));
+            CacheCreatePrefabIDs();
+            CacheCreateMultipliers();
+            HooksSubscribe();
         }
 
         #endregion Initialization
@@ -211,7 +199,7 @@ namespace Oxide.Plugins
 
         #endregion Configuration
 
-        #region Hooks
+        #region Oxide Hooks
 
         private object OnMaxStackable(Item item)
         {
@@ -230,12 +218,12 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            if (TargetContainer != null)
+            if (_targetContainer != null)
             {
-                BaseEntity entity = TargetContainer.entityOwner ?? TargetContainer.playerOwner;
-                if (entity != null)
+                BaseEntity entity = _targetContainer.entityOwner ?? _targetContainer.playerOwner;
+                if (entity.IsValid())
                 {
-                    TargetContainer = null;
+                    _targetContainer = null;
                     float stackMultiplier = GetStackMultiplier(entity);
                     if (stackMultiplier == 1f)
                     {
@@ -251,62 +239,83 @@ namespace Oxide.Plugins
                 float stackMultiplier = 1f;
                 if (item.parent.entityOwner.prefabID == _playerPrefabID && !(item.parent.HasFlag(ItemContainer.Flag.IsPlayer)))
                 {
-                    stackMultiplier = _multipliersCache[_backpackPrefabID];
+                    stackMultiplier = _cacheMultipliers[_backpackPrefabID];
                 }
                 else
                 {
                     stackMultiplier = GetStackMultiplier(item.parent.entityOwner);
                 }
 
-                if (stackMultiplier == 1f)
+                if (stackMultiplier != 1f)
                 {
-                    return null;
+                    return Mathf.FloorToInt(stackMultiplier * item.info.stackable);
                 }
-
-                return Mathf.FloorToInt(stackMultiplier * item.info.stackable);
             }
 
             return null;
         }
 
-        private ItemContainer TargetContainer;
-
         private object CanMoveItem(Item movedItem, PlayerInventory playerInventory, uint targetContainerID, int targetSlot, int amount)
         {
-            if (WeightSystemLoaded())
-            {
-                return null;
-            }
-
             if (movedItem == null || playerInventory == null)
             {
                 return null;
             }
 
+            if (WeightSystemLoaded())
+            {
+                return null;
+            }
+
+            BasePlayer player = playerInventory.baseEntity;
+            if (!player.IsValid())
+            {
+                return null;
+            }
+
+            BaseEntity entityOwner = movedItem.GetEntityOwner();
+            
+            if (targetContainerID == 0)
+            {//Moving From Player Inventory
+                if (entityOwner == player)
+                {
+                    if (playerInventory.loot.containers.Count > 0)
+                    {
+                        targetContainerID = playerInventory.loot.containers[0].uid;
+                        //Puts($"Moving item {movedItem} into looting container {targetContainerID}");
+                    }
+                    else
+                    {
+                        targetContainerID = player.GetIdealContainer(player, movedItem);
+                        //Puts($"Moving item {movedItem} to another player inventory container {targetContainerID}");
+                    }
+                }
+                else if(entityOwner == playerInventory.loot.entitySource)
+                {
+                    targetContainerID = playerInventory.containerMain.uid;
+                    //Puts($"Moving item {movedItem} into player inventory from container {targetContainerID}");
+                }
+            }
             ItemContainer container = playerInventory.FindContainer(targetContainerID);
-            BasePlayer player = playerInventory.GetComponent<BasePlayer>();
             ItemContainer lootContainer = playerInventory.loot?.FindContainer(targetContainerID);
 
-            TargetContainer = container;
+            _targetContainer = container;
 
             //Puts($"TargetSlot {targetSlot} Amount {amount} TargetContainer {targetContainerID}");
-
             // Right-Click Overstack into Player Inventory
             if (targetSlot == -1)
             {
                 if (lootContainer == null)
                 {
                     if (movedItem.amount > movedItem.info.stackable)
-                    {
-                        //to prevent player able to "steal" overstacked items in trades
-                        ShopFront shopFront = movedItem.parent?.entityOwner?.GetComponent<ShopFront>();
-                        if (shopFront != null)
+                    {//to prevent player able to "steal" overstacked items in trades
+                        if (movedItem.parent?.entityOwner is ShopFront)
                         {
                             return null;
                         }
 
                         int loops = 1;
-                        if (player != null && player.serverInput.IsDown(BUTTON.SPRINT))
+                        if (player.IsValid() && player.serverInput.IsDown(BUTTON.SPRINT))
                         {
                             loops = Mathf.CeilToInt((float)movedItem.amount / movedItem.info.stackable);
                         }
@@ -346,15 +355,15 @@ namespace Oxide.Plugins
                             }
                         }
                         playerInventory.ServerUpdate(0f);
-                        return false;
+                        return true;
                     }
                 }
                 // Shift Right click into storage container
                 else
                 {
-                    if (player != null && player.serverInput.IsDown(BUTTON.SPRINT))
+                    if (player.IsValid() && player.serverInput.IsDown(BUTTON.SPRINT))
                     {
-                        List<Item> itemsToMove = new List<Item>();
+                        List<Item> itemsToMove = Pool.GetList<Item>();
                         foreach (Item item in playerInventory.containerMain.itemList)
                         {
                             if (item.info.itemid == movedItem.info.itemid && item != movedItem)
@@ -378,6 +387,7 @@ namespace Oxide.Plugins
                             }
                         }
 
+                        Pool.FreeList(ref itemsToMove);
                         playerInventory.ServerUpdate(0f);
                         return null;
                     }
@@ -418,9 +428,8 @@ namespace Oxide.Plugins
                     }
                 }
                 playerInventory.ServerUpdate(0f);
-                return false;
+                return true;
             }
-
             // Prevent Moving Overstacks To Inventory
             if (lootContainer != null)
             {
@@ -433,7 +442,7 @@ namespace Oxide.Plugins
                         {
                             if (targetItem.amount > targetItem.info.stackable)
                             {
-                                return false;
+                                return true;
                             }
                         }
                     }
@@ -446,9 +455,14 @@ namespace Oxide.Plugins
         // Covers dropping overstacks from chests onto the ground
         private void OnItemDropped(Item item, BaseEntity entity)
         {
-            if (item == null || entity == null) return;
+            if (item == null || !entity.IsValid())
+            {
+                return;
+            }
+
             item.RemoveFromContainer();
             int stackSize = item.MaxStackable();
+
             if (item.amount > stackSize)
             {
                 int loops = Mathf.FloorToInt((float)item.amount / stackSize);
@@ -456,41 +470,88 @@ namespace Oxide.Plugins
                 {
                     return;
                 }
+
                 for (int i = 0; i < loops; i++)
                 {
                     if (item.amount <= stackSize)
                     {
                         break;
                     }
+
                     Item splitItem = item.SplitItem(stackSize);
                     if (splitItem != null)
                     {
-                        splitItem.Drop(entity.transform.position, entity.GetComponent<Rigidbody>().velocity + Vector3Ex.Range(-1f, 1f));
+                        splitItem.Drop(entity.transform.position, entity.GetDropVelocity() + Vector3Ex.Range(-1f, 1f));
                     }
                 }
             }
         }
-        #endregion Hooks
 
-        #region Helpers
+        private void OnBackpackOpened(BasePlayer player, ulong backpackOwnerID, ItemContainer backpackContainer)
+        {
+            try
+            {
+                if (backpackContainer != null && !_cacheBackpackContainers.Contains(backpackContainer.uid))
+                {
+                    AddBackpackToCache(backpackContainer);
+                }
+            }
+            catch(System.Exception ex)
+            {
+                PrintError($"OnBackpackOpened threw exception\n:{ex}");
+                throw;
+            }
+        }
 
-        private void CreateMultipliersCache()
+        #endregion Oxide Hooks
+
+        #region Core Methods
+
+        public void CacheCreatePrefabIDs()
+        {
+            _playerPrefabID = StringPool.Get("assets/prefabs/player/player.prefab");
+
+            if (!_configData.StacksSettings.Containers.ContainsKey("Backpack"))
+            {
+                _configData.StacksSettings.Containers["Backpack"] = _configData.GlobalSettings.DefaultContainerMultiplier;
+                SaveConfig();
+            }
+
+            _backpackPrefabID = 1;
+            while (StringPool.toString.ContainsKey(_backpackPrefabID))
+            {
+                _backpackPrefabID += 1000;
+            }
+        }
+
+        public void CacheCreateMultipliers()
         {
             uint id = 0;
             foreach (KeyValuePair<string, float> container in _configData.StacksSettings.Containers)
             {
                 if (container.Key == "Backpack")
                 {
-                    _multipliersCache[_backpackPrefabID] = _configData.StacksSettings.Containers["Backpack"];
+                    _cacheMultipliers[_backpackPrefabID] = _configData.StacksSettings.Containers["Backpack"];
                 }
                 else
                 {
                     id = StringPool.Get(container.Key);
                     if (id > 0)
                     {
-                        _multipliersCache[id] = container.Value;
+                        _cacheMultipliers[id] = container.Value;
                     }
                 }
+            }
+        }
+
+        private void AddBackpackToCache(ItemContainer itemContainer)
+        {
+            BaseEntity baseEntity = itemContainer.GetEntityOwner();
+
+            if (baseEntity.IsValid() && !_cacheBackpackEntities.Contains(baseEntity.net.ID))
+            {
+                _cacheBackpackContainers.Add(itemContainer.uid);
+                _cacheBackpackEntities.Add(baseEntity.net.ID);
             }
         }
 
@@ -560,40 +621,65 @@ namespace Oxide.Plugins
                 return 1f;
             }
 
-            float multiplier = GetMultiplierByPrefabID(entity.prefabID);
-            if (multiplier == 0)
+            if (_cacheBackpackEntities.Contains(entity.net.ID))
             {
-                multiplier = GetMultiplierByPrefabName(entity.PrefabName);
+                _cacheMultipliers.TryGetValue(_backpackPrefabID, out _multiplier);
+                return _multiplier;
             }
 
-            return multiplier;
+            _multiplier = GetMultiplierByPrefabID(entity.prefabID);
+            if (_multiplier == 0)
+            {
+                _multiplier = GetMultiplierByPrefabName(entity.PrefabName);
+            }
+
+            return _multiplier;
         }
 
-        private float GetMultiplierByPrefabID(ulong prefabID)
+        public float GetMultiplierByPrefabID(ulong prefabID)
         {
-            if (_multipliersCache.ContainsKey(prefabID))
+            if (_cacheMultipliers.ContainsKey(prefabID))
             {
-                return _multipliersCache[prefabID];
+                return _cacheMultipliers[prefabID];
             }
 
             return 0;
         }
 
-        private float GetMultiplierByPrefabName(string prefabName)
+        public float GetMultiplierByPrefabName(string prefabName)
         {
-            float multiplier;
-            if (_configData.StacksSettings.Containers.TryGetValue(prefabName, out multiplier))
+            if (_configData.StacksSettings.Containers.TryGetValue(prefabName, out _multiplier))
             {
-                return multiplier;
+                return _multiplier;
             }
 
-            multiplier = _configData.GlobalSettings.DefaultContainerMultiplier;
-            _configData.StacksSettings.Containers[prefabName] = multiplier;
+            _multiplier = _configData.GlobalSettings.DefaultContainerMultiplier;
+            _configData.StacksSettings.Containers[prefabName] = _multiplier;
             SaveConfig();
-            _multipliersCache.Clear();
-            CreateMultipliersCache();
+            _cacheMultipliers.Clear();
+            CacheCreateMultipliers();
 
-            return multiplier;
+            return _multiplier;
+        }
+
+        #endregion Core Methods
+
+        #region Helpers
+
+        private void HooksUnsubscribe()
+        {
+            Unsubscribe(nameof(CanMoveItem));
+            Unsubscribe(nameof(OnBackpackOpened));
+            Unsubscribe(nameof(OnItemDropped));
+            Unsubscribe(nameof(OnMaxStackable));
+        }
+
+        private void HooksSubscribe()
+        {
+            Subscribe(nameof(CanMoveItem));
+            Subscribe(nameof(OnBackpackOpened));
+            Subscribe(nameof(OnItemDropped));
+            Subscribe(nameof(OnMaxStackable));
         }
 
         #endregion Helpers

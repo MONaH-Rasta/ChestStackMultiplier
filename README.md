@@ -1,9 +1,9 @@
-# ChestStacks
+# ChestStackMultiplier
 Allows higher stack sizes in storage containers (wood box, furnace, quarry output, dropbox, etc).
 
 ## Features
 
-**Chest Stacks** allows higher stack sizes in storage containers (wood box, furnace, quarry output, dropbox, etc). Initial settings has some containers you can use "out of the box". All newly detected containers will be added to list automaticly using default multiplier. You can add them by hand if you need them before that time [RUST Prefab List](https://www.corrosionhour.com/rust-prefab-list/)
+**Chest Stack Multiplier** allows to change stack sizes in storage containers (wood box, furnace, quarry output, dropbox, etc). Initial settings has some containers you can use "out of the box". All newly detected containers will be added to list automaticly using default multiplier. You can add them by hand if you need them before that time [RUST Prefab List](https://www.corrosionhour.com/rust-prefab-list/)
 
 ### Hotkeys
   
