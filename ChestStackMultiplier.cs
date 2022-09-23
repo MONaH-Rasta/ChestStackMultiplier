@@ -623,8 +623,7 @@ namespace Oxide.Plugins
 
             if (_cacheBackpackEntities.Contains(entity.net.ID))
             {
-                _cacheMultipliers.TryGetValue(_backpackPrefabID, out _multiplier);
-                return _multiplier;
+                return _cacheMultipliers[_backpackPrefabID];
             }
 
             _multiplier = GetMultiplierByPrefabID(entity.prefabID);
