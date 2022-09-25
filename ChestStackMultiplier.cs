@@ -621,7 +621,7 @@ namespace Oxide.Plugins
                 return 1f;
             }
 
-            if (_cacheBackpackEntities.Contains(entity.net.ID))
+            if (entity.net != null && _cacheBackpackEntities.Contains(entity.net.ID))
             {
                 return _cacheMultipliers[_backpackPrefabID];
             }
