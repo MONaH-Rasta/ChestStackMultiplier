@@ -1,11 +1,11 @@
-﻿using Facepunch;
+﻿using System.Collections.Generic;
+using Facepunch;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Chest Stack Multiplier", "MON@H", "1.5.0")]
+    [Info("Chest Stack Multiplier", "MON@H", "1.5.1")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStackMultiplier : RustPlugin //Hobobarrel_static, item_drop
@@ -286,7 +286,7 @@ namespace Oxide.Plugins
                     }
                     else
                     {
-                        targetContainerID = player.GetIdealContainer(player, movedItem);
+                        targetContainerID = player.GetIdealContainer(player, movedItem, false);
                         //Puts($"Moving item {movedItem} to another player inventory container {targetContainerID}");
                     }
                 }
