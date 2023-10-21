@@ -12,7 +12,7 @@ namespace Oxide.Plugins
     {
         #region Variables
 
-        [PluginReference] private RustPlugin WeightSystem;
+        [PluginReference] private readonly RustPlugin WeightSystem;
         private readonly Hash<ulong, float> _cacheMultipliers = new Hash<ulong, float>();
         private readonly HashSet<ulong> _cacheBackpackContainers = new HashSet<ulong>();
         private readonly HashSet<ulong> _cacheBackpackEntities = new HashSet<ulong>();
@@ -544,7 +544,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private void AddBackpackToCache(ItemContainer itemContainer)
+        public void AddBackpackToCache(ItemContainer itemContainer)
         {
             BaseEntity baseEntity = itemContainer.GetEntityOwner();
 
@@ -555,7 +555,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private bool WeightSystemLoaded()
+        public bool WeightSystemLoaded()
         {
             return WeightSystem != null && WeightSystem.IsLoaded;
         }
@@ -665,7 +665,7 @@ namespace Oxide.Plugins
 
         #region Helpers
 
-        private void HooksUnsubscribe()
+        public void HooksUnsubscribe()
         {
             Unsubscribe(nameof(CanMoveItem));
             Unsubscribe(nameof(OnBackpackOpened));
@@ -673,7 +673,7 @@ namespace Oxide.Plugins
             Unsubscribe(nameof(OnMaxStackable));
         }
 
-        private void HooksSubscribe()
+        public void HooksSubscribe()
         {
             Subscribe(nameof(CanMoveItem));
             Subscribe(nameof(OnBackpackOpened));
