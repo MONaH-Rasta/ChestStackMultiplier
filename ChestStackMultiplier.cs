@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Chest Stack Multiplier", "MON@H", "1.5.1")]
+    [Info("Chest Stack Multiplier", "MON@H", "1.5.2")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStackMultiplier : RustPlugin //Hobobarrel_static, item_drop
@@ -14,8 +14,8 @@ namespace Oxide.Plugins
 
         [PluginReference] private RustPlugin WeightSystem;
         private readonly Hash<ulong, float> _cacheMultipliers = new Hash<ulong, float>();
-        private readonly HashSet<uint> _cacheBackpackContainers = new HashSet<uint>();
-        private readonly HashSet<uint> _cacheBackpackEntities = new HashSet<uint>();
+        private readonly HashSet<ulong> _cacheBackpackContainers = new HashSet<ulong>();
+        private readonly HashSet<ulong> _cacheBackpackEntities = new HashSet<ulong>();
         private float _multiplier;
         private ItemContainer _targetContainer;
         private uint _backpackPrefabID;
@@ -255,7 +255,7 @@ namespace Oxide.Plugins
             return null;
         }
 
-        private object CanMoveItem(Item movedItem, PlayerInventory playerInventory, uint targetContainerID, int targetSlot, int amount)
+        private object CanMoveItem(Item movedItem, PlayerInventory playerInventory, ItemContainerId targetContainerID, int targetSlot, int amount)
         {
             if (movedItem == null || playerInventory == null)
             {
@@ -275,13 +275,13 @@ namespace Oxide.Plugins
 
             BaseEntity entityOwner = movedItem.GetEntityOwner();
             
-            if (targetContainerID == 0)
+            if (targetContainerID.Value == 0)
             {//Moving From Player Inventory
                 if (entityOwner == player)
                 {
                     if (playerInventory.loot.containers.Count > 0)
                     {
-                        targetContainerID = playerInventory.loot.containers[0].uid;
+                        targetContainerID.Value = playerInventory.loot.containers[0].uid.Value;
                         //Puts($"Moving item {movedItem} into looting container {targetContainerID}");
                     }
                     else
@@ -491,7 +491,7 @@ namespace Oxide.Plugins
         {
             try
             {
-                if (backpackContainer != null && !_cacheBackpackContainers.Contains(backpackContainer.uid))
+                if (backpackContainer != null && !_cacheBackpackContainers.Contains(backpackContainer.uid.Value))
                 {
                     AddBackpackToCache(backpackContainer);
                 }
@@ -548,10 +548,10 @@ namespace Oxide.Plugins
         {
             BaseEntity baseEntity = itemContainer.GetEntityOwner();
 
-            if (baseEntity.IsValid() && !_cacheBackpackEntities.Contains(baseEntity.net.ID))
+            if (baseEntity.IsValid() && !_cacheBackpackEntities.Contains(baseEntity.net.ID.Value))
             {
-                _cacheBackpackContainers.Add(itemContainer.uid);
-                _cacheBackpackEntities.Add(baseEntity.net.ID);
+                _cacheBackpackContainers.Add(itemContainer.uid.Value);
+                _cacheBackpackEntities.Add(baseEntity.net.ID.Value);
             }
         }
 
@@ -621,7 +621,7 @@ namespace Oxide.Plugins
                 return 1f;
             }
 
-            if (entity.net != null && _cacheBackpackEntities.Contains(entity.net.ID))
+            if (entity.net != null && _cacheBackpackEntities.Contains(entity.net.ID.Value))
             {
                 return _cacheMultipliers[_backpackPrefabID];
             }
