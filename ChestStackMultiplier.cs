@@ -1,18 +1,22 @@
 ﻿using System.Collections.Generic;
-using Facepunch;
+using System.ComponentModel;
+
 using Newtonsoft.Json;
 using UnityEngine;
 
+using Pool = Facepunch.Pool;
+
 namespace Oxide.Plugins
 {
-    [Info("Chest Stack Multiplier", "MON@H", "1.5.3")]
+    [Info("Chest Stack Multiplier", "MON@H", "1.6.0")]
     [Description("Higher stack sizes in storage containers.")]
 
-    public class ChestStackMultiplier : RustPlugin //Hobobarrel_static, item_drop
+    public class ChestStackMultiplier : RustPlugin
     {
         #region Variables
 
-        [PluginReference] private readonly RustPlugin WeightSystem;
+        private const string PermissionUseShift = "cheststackmultiplier.useshift";
+
         private readonly Hash<ulong, float> _cacheMultipliers = new();
         private readonly HashSet<ulong> _cacheBackpackContainers = new();
         private readonly HashSet<ulong> _cacheBackpackEntities = new();
@@ -24,15 +28,13 @@ namespace Oxide.Plugins
 
         #region Initialization
 
-        private void Init()
-        {
-            HooksUnsubscribe();
-        }
+        private void Init() => HooksUnsubscribe();
 
         private void OnServerInitialized()
         {
-            CacheCreatePrefabIDs();
-            CacheCreateMultipliers();
+            RegisterPermissions();
+            CachePrefabIDs();
+            CacheMultipliers();
             HooksSubscribe();
         }
 
@@ -40,161 +42,68 @@ namespace Oxide.Plugins
 
         #region Configuration
 
-        private ConfigData _configData;
+        private PluginConfig _pluginConfig;
 
-        private class ConfigData
+        public class PluginConfig
         {
-            [JsonProperty(PropertyName = "Global settings")]
-            public GlobalConfiguration GlobalSettings = new();
+            [JsonProperty(PropertyName = "Default Multiplier for new containers")]
+            [DefaultValue(1f)]
+            public float DefaultMultiplier { get; set; }
 
-            [JsonProperty(PropertyName = "Stack settings")]
-            public StackConfiguration StacksSettings = new();
-
-            public class GlobalConfiguration
-            {
-                [JsonProperty(PropertyName = "Default Multiplier for new containers")]
-                public float DefaultContainerMultiplier = 1f;
-            }
-
-            public class StackConfiguration
-            {
-                [JsonProperty(PropertyName = "Containers list (PrefabName: multiplier)")]
-                public SortedDictionary<string, float> Containers = new()
-                {
-                    {"assets/bundled/prefabs/static/bbq.static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/hobobarrel_static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/recycler_static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/repairbench_static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/researchtable_static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/small_refinery_static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/wall.frame.shopfront.metal.static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/water_catcher_small.static.prefab", 1f},
-                    {"assets/bundled/prefabs/static/workbench1.static.prefab", 1f},
-                    {"assets/content/props/fog machine/fogmachine.prefab", 1f},
-                    {"assets/content/structures/excavator/prefabs/engine.prefab", 1f},
-                    {"assets/content/structures/excavator/prefabs/excavator_output_pile.prefab", 1f},
-                    {"assets/content/vehicles/boats/rhib/subents/fuel_storage.prefab", 1f},
-                    {"assets/content/vehicles/boats/rhib/subents/rhib_storage.prefab", 1f},
-                    {"assets/content/vehicles/boats/rowboat/subents/fuel_storage.prefab", 1f},
-                    {"assets/content/vehicles/boats/rowboat/subents/rowboat_storage.prefab", 1f},
-                    {"assets/content/vehicles/minicopter/subents/fuel_storage.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/2module_car_spawned.entity.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/3module_car_spawned.entity.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/4module_car_spawned.entity.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/subents/modular_car_1mod_storage.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/subents/modular_car_2mod_fuel_tank.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/subents/modular_car_fuel_storage.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/subents/modular_car_i4_engine_storage.prefab", 1f},
-                    {"assets/content/vehicles/modularcar/subents/modular_car_v8_engine_storage.prefab", 1f},
-                    {"assets/content/vehicles/scrap heli carrier/subents/fuel_storage_scrapheli.prefab", 1f},
-                    {"assets/prefabs/building/wall.frame.shopfront/wall.frame.shopfront.metal.prefab", 1f},
-                    {"assets/prefabs/deployable/bbq/bbq.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/campfire/campfire.prefab", 1f},
-                    {"assets/prefabs/deployable/composter/composter.prefab", 1f},
-                    {"assets/prefabs/deployable/dropbox/dropbox.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/fireplace/fireplace.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/fridge/fridge.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/furnace.large/furnace.large.prefab", 1f},
-                    {"assets/prefabs/deployable/furnace/furnace.prefab", 1f},
-                    {"assets/prefabs/deployable/hitch & trough/hitchtrough.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/hot air balloon/subents/hab_storage.prefab", 1f},
-                    {"assets/prefabs/deployable/jack o lantern/jackolantern.angry.prefab", 1f},
-                    {"assets/prefabs/deployable/jack o lantern/jackolantern.happy.prefab", 1f},
-                    {"assets/prefabs/deployable/lantern/lantern.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/large wood storage/box.wooden.large.prefab", 1f},
-                    {"assets/prefabs/deployable/liquidbarrel/waterbarrel.prefab", 1f},
-                    {"assets/prefabs/deployable/locker/locker.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/mailbox/mailbox.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/mixingtable/mixingtable.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/oil jack/crudeoutput.prefab", 1f},
-                    {"assets/prefabs/deployable/oil jack/fuelstorage.prefab", 1f},
-                    {"assets/prefabs/deployable/oil refinery/refinery_small_deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/planters/planter.large.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/planters/planter.small.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/playerioents/generators/fuel generator/small_fuel_generator.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/playerioents/poweredwaterpurifier/poweredwaterpurifier.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/playerioents/poweredwaterpurifier/poweredwaterpurifier.storage.prefab", 1f},
-                    {"assets/prefabs/deployable/playerioents/waterpump/water.pump.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/quarry/fuelstorage.prefab", 1f},
-                    {"assets/prefabs/deployable/quarry/hopperoutput.prefab", 1f},
-                    {"assets/prefabs/deployable/repair bench/repairbench_deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/research table/researchtable_deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/single shot trap/guntrap.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/small stash/small_stash_deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/survivalfishtrap/survivalfishtrap.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/tier 1 workbench/workbench1.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/tier 2 workbench/workbench2.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/tier 3 workbench/workbench3.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/tool cupboard/cupboard.tool.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/tuna can wall lamp/tunalight.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_attire.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_building.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_components.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_extra.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_farming.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_resources.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_tools.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_vehicleshigh.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/npcvendingmachine_weapons.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/npcvendingmachines/shopkeeper_vm_invis.prefab", 1f},
-                    {"assets/prefabs/deployable/vendingmachine/vendingmachine.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/water catcher/water_catcher_large.prefab", 1f},
-                    {"assets/prefabs/deployable/water catcher/water_catcher_small.prefab", 1f},
-                    {"assets/prefabs/deployable/water well/waterwellstatic.prefab", 1f},
-                    {"assets/prefabs/deployable/waterpurifier/waterpurifier.deployed.prefab", 1f},
-                    {"assets/prefabs/deployable/waterpurifier/waterstorage.prefab", 1f},
-                    {"assets/prefabs/deployable/woodenbox/woodbox_deployed.prefab", 1f},
-                    {"assets/prefabs/io/electric/switches/fusebox/fusebox.prefab", 1f},
-                    {"assets/prefabs/misc/casino/bigwheel/bigwheelbettingterminal.prefab", 1f},
-                    {"assets/prefabs/misc/chinesenewyear/chineselantern/chineselantern.deployed.prefab", 1f},
-                    {"assets/prefabs/misc/halloween/coffin/coffinstorage.prefab", 1f},
-                    {"assets/prefabs/misc/halloween/cursed_cauldron/cursedcauldron.deployed.prefab", 1f},
-                    {"assets/prefabs/misc/halloween/skull_fire_pit/skull_fire_pit.prefab", 1f},
-                    {"assets/prefabs/misc/halloween/trophy skulls/skulltrophy.deployed.prefab", 1f},
-                    {"assets/prefabs/misc/item drop/item_drop.prefab", 1f},
-                    {"assets/prefabs/misc/item drop/item_drop_backpack.prefab", 1f},
-                    {"assets/prefabs/misc/marketplace/marketterminal.prefab", 1f},
-                    {"assets/prefabs/misc/summer_dlc/abovegroundpool/abovegroundpool.deployed.prefab", 1f},
-                    {"assets/prefabs/misc/summer_dlc/paddling_pool/paddlingpool.deployed.prefab", 1f},
-                    {"assets/prefabs/misc/summer_dlc/photoframe/photoframe.landscape.prefab", 1f},
-                    {"assets/prefabs/misc/summer_dlc/photoframe/photoframe.large.prefab", 1f},
-                    {"assets/prefabs/misc/summer_dlc/photoframe/photoframe.portrait.prefab", 1f},
-                    {"assets/prefabs/misc/supply drop/supply_drop.prefab", 1f},
-                    {"assets/prefabs/misc/twitch/hobobarrel/hobobarrel.deployed.prefab", 1f},
-                    {"assets/prefabs/misc/xmas/snow_machine/models/snowmachine.prefab", 1f},
-                    {"assets/prefabs/misc/xmas/xmastree/xmas_tree.deployed.prefab", 1f},
-                    {"assets/prefabs/npc/autoturret/autoturret_deployed.prefab", 1f},
-                    {"assets/prefabs/npc/flame turret/flameturret.deployed.prefab", 1f},
-                    {"assets/prefabs/npc/sam_site_turret/sam_site_turret_deployed.prefab", 1f},
-                    {"Backpack", 1f}
-                };
-            }
+            [JsonProperty(PropertyName = "Containers list (PrefabName: multiplier)")]
+            public SortedDictionary<string, float> ContainerMultipliers { get; set; }
         }
+
+        protected override void LoadDefaultConfig() => PrintWarning("Loading Default Config");
 
         protected override void LoadConfig()
         {
             base.LoadConfig();
-            try
-            {
-                _configData = Config.ReadObject<ConfigData>();
-                if (_configData == null)
-                    LoadDefaultConfig();
-            }
-            catch
-            {
-                PrintError("The configuration file is corrupted");
-                LoadDefaultConfig();
-            }
-            SaveConfig();
+            Config.Settings.DefaultValueHandling = DefaultValueHandling.Populate;
+            _pluginConfig = AdditionalConfig(Config.ReadObject<PluginConfig>());
+            Config.WriteObject(_pluginConfig);
         }
 
-        protected override void LoadDefaultConfig()
+        public PluginConfig AdditionalConfig(PluginConfig config)
         {
-            PrintWarning("Creating a new configuration file");
-            _configData = new ConfigData();
-        }
+            if (config.DefaultMultiplier <= 0)
+            {
+                PrintWarning("LoadConfig: Default Multiplier can't be less than or equal to 0, resetting to 1");
+                config.DefaultMultiplier = 1f;
+            }
+            if (config.ContainerMultipliers == null)
+            {
+                config.ContainerMultipliers = new();
+                foreach (ItemDefinition def in ItemManager.GetItemDefinitions())
+                {
+                    BoxStorage entity = def.GetComponent<ItemModDeployable>()?.entityPrefab.Get().GetComponent<BoxStorage>();
+                    if (!entity || config.ContainerMultipliers.ContainsKey(entity.PrefabName))
+                    {
+                        continue;
+                    }
 
-        protected override void SaveConfig() => Config.WriteObject(_configData);
+                    config.ContainerMultipliers[entity.PrefabName] = config.DefaultMultiplier;
+                }
+            }
+
+            List<string> invalidValues = Pool.GetList<string>();
+            foreach (KeyValuePair<string, float> containerMultiplier in config.ContainerMultipliers)
+            {
+                if (containerMultiplier.Value > 0)
+                {
+                    continue;
+                }
+
+                PrintWarning($"LoadConfig: {containerMultiplier.Key} Multiplier can't be less than or equal to 0, resetting to default");
+                invalidValues.Add(containerMultiplier.Key);
+            }
+            foreach (string invalidValue in invalidValues)
+            {
+                config.ContainerMultipliers[invalidValue] = config.DefaultMultiplier;
+            }
+            Pool.FreeList(ref invalidValues);
+            return config;
+        }
 
         #endregion Configuration
 
@@ -202,24 +111,16 @@ namespace Oxide.Plugins
 
         private object OnMaxStackable(Item item)
         {
-            if (WeightSystemLoaded())
+            if (item.info.stackable == 1 || item.info.itemType == ItemContainer.ContentsType.Liquid)
             {
                 return null;
             }
 
-            if (item.info.itemType == ItemContainer.ContentsType.Liquid)
-            {
-                return null;
-            }
-
-            if (item.info.stackable == 1)
-            {
-                return null;
-            }
+            BaseEntity entity;
 
             if (_targetContainer != null)
             {
-                BaseEntity entity = _targetContainer.entityOwner ?? _targetContainer.playerOwner;
+                entity = _targetContainer.GetEntityOwner() ?? _targetContainer.GetOwnerPlayer();
                 if (entity.IsValid())
                 {
                     _targetContainer = null;
@@ -233,17 +134,19 @@ namespace Oxide.Plugins
                 }
             }
 
-            if (item.GetEntityOwner() != null)
+            entity = item.GetEntityOwner() ?? item.GetOwnerPlayer();
+
+            if (entity.IsValid())
             {
                 float stackMultiplier;
 
-                if (item.parent.entityOwner.prefabID == _playerPrefabID && !item.parent.HasFlag(ItemContainer.Flag.IsPlayer))
+                if (entity.prefabID == _playerPrefabID && !item.parent.HasFlag(ItemContainer.Flag.IsPlayer))
                 {
                     stackMultiplier = _cacheMultipliers[_backpackPrefabID];
                 }
                 else
                 {
-                    stackMultiplier = GetStackMultiplier(item.parent.entityOwner);
+                    stackMultiplier = GetStackMultiplier(entity);
                 }
 
                 if (stackMultiplier != 1f)
@@ -262,22 +165,21 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            if (WeightSystemLoaded())
-            {
-                return null;
-            }
-
             BasePlayer player = playerInventory.baseEntity;
             if (!player.IsValid())
             {
                 return null;
             }
 
-            BaseEntity entityOwner = movedItem.GetEntityOwner();
-            
+            BaseEntity sourceEntity = movedItem.GetEntityOwner() ?? movedItem.GetOwnerPlayer();
+            if (IsExcluded(sourceEntity, player))
+            {
+                return null;
+            }
+
             if (targetContainerID.Value == 0)
             {//Moving From Player Inventory
-                if (entityOwner == player)
+                if (sourceEntity == player)
                 {
                     if (playerInventory.loot.containers.Count > 0)
                     {
@@ -286,20 +188,26 @@ namespace Oxide.Plugins
                     }
                     else
                     {
-                        targetContainerID = player.GetIdealContainer(player, movedItem, false);
+                        return null;
+                        //targetContainerID = player.GetIdealContainer(player, movedItem, false);
                         //Puts($"Moving item {movedItem} to another player inventory container {targetContainerID}");
                     }
                 }
-                else if(entityOwner == playerInventory.loot.entitySource)
+                else if (sourceEntity == playerInventory.loot.entitySource)
                 {
                     targetContainerID = playerInventory.containerMain.uid;
                     //Puts($"Moving item {movedItem} into player inventory from container {targetContainerID}");
                 }
             }
-            ItemContainer container = playerInventory.FindContainer(targetContainerID);
-            ItemContainer lootContainer = playerInventory.loot?.FindContainer(targetContainerID);
+            ItemContainer targetContainer = playerInventory.FindContainer(targetContainerID);
+            BaseEntity targetEntity = targetContainer.GetEntityOwner() ?? targetContainer.GetOwnerPlayer();
+            if (sourceEntity == targetEntity || IsExcluded(targetEntity, player))
+            {
+                return null;
+            }
 
-            _targetContainer = container;
+            ItemContainer lootContainer = playerInventory.loot?.FindContainer(targetContainerID);
+            _targetContainer = targetContainer;
 
             //Puts($"TargetSlot {targetSlot} Amount {amount} TargetContainer {targetContainerID}");
             // Right-Click Overstack into Player Inventory
@@ -308,14 +216,9 @@ namespace Oxide.Plugins
                 if (lootContainer == null)
                 {
                     if (movedItem.amount > movedItem.info.stackable)
-                    {//to prevent player able to move overstacked items
-                        if (entityOwner is ShopFront || entityOwner is BigWheelBettingTerminal || entityOwner is VendingMachine)
-                        {
-                            return null;
-                        }
-
+                    {
                         int loops = 1;
-                        if (player.serverInput.IsDown(BUTTON.SPRINT))
+                        if (IsUsingShift(player))
                         {
                             loops = Mathf.CeilToInt((float)movedItem.amount / movedItem.info.stackable);
                         }
@@ -323,9 +226,9 @@ namespace Oxide.Plugins
                         {
                             if (movedItem.amount <= movedItem.info.stackable)
                             {
-                                if (container != null)
+                                if (targetContainer != null)
                                 {
-                                    movedItem.MoveToContainer(container, targetSlot);
+                                    movedItem.MoveToContainer(targetContainer);
                                 }
                                 else
                                 {
@@ -336,9 +239,9 @@ namespace Oxide.Plugins
                             Item itemToMove = movedItem.SplitItem(movedItem.info.stackable);
                             bool moved;
 
-                            if (container != null)
+                            if (targetContainer != null)
                             {
-                                moved = itemToMove.MoveToContainer(container, targetSlot);
+                                moved = itemToMove.MoveToContainer(targetContainer, targetSlot);
                             }
                             else
                             {
@@ -359,9 +262,11 @@ namespace Oxide.Plugins
                 // Shift Right click into storage container
                 else
                 {
-                    if (player.serverInput.IsDown(BUTTON.SPRINT))
+                    if (IsUsingShift(player))
                     {
+                        //Puts($"Shift Right click into storage container {lootContainer}");
                         List<Item> itemsToMove = Pool.GetList<Item>();
+                        int i = 0;
                         foreach (Item item in playerInventory.containerMain.itemList)
                         {
                             if (item.info.itemid == movedItem.info.itemid && item != movedItem)
@@ -376,34 +281,36 @@ namespace Oxide.Plugins
                                 itemsToMove.Add(item);
                             }
                         }
-
                         foreach (Item item in itemsToMove)
                         {
                             if (!item.MoveToContainer(lootContainer))
                             {
                                 break;
                             }
+                            i++;
                         }
-
                         Pool.FreeList(ref itemsToMove);
-                        playerInventory.ServerUpdate(0f);
-                        return null;
+                        if (i > 0)
+                        {
+                            playerInventory.ServerUpdate(0f);
+                            return null;
+                        }
                     }
                 }
             }
             // Moving Overstacks Around In Chest
             if (amount > movedItem.info.stackable && lootContainer != null)
             {
-                Item targetItem = container.GetSlot(targetSlot);
+                Item targetItem = targetContainer.GetSlot(targetSlot);
                 if (targetItem == null)
                 {// Split item into chest
                     if (amount < movedItem.amount)
                     {
-                        ItemHelper.SplitMoveItem(movedItem, amount, container, targetSlot);
+                        ItemHelper.SplitMoveItem(movedItem, amount, targetContainer, targetSlot);
                     }
                     else
                     {// Moving items when amount > info.stacksize
-                        movedItem.MoveToContainer(container, targetSlot);
+                        movedItem.MoveToContainer(targetContainer, targetSlot);
                     }
                 }
                 else
@@ -420,7 +327,7 @@ namespace Oxide.Plugins
                         }
                         else
                         {
-                            movedItem.MoveToContainer(container, targetSlot);
+                            movedItem.MoveToContainer(targetContainer, targetSlot);
                         }
                         // Stacking items when amount > info.stacksize
                     }
@@ -431,10 +338,10 @@ namespace Oxide.Plugins
             // Prevent Moving Overstacks To Inventory
             if (lootContainer != null)
             {
-                Item targetItem = container.GetSlot(targetSlot);
+                Item targetItem = targetContainer.GetSlot(targetSlot);
                 if (targetItem != null)
                 {
-                    if (movedItem.parent.playerOwner == player)
+                    if (movedItem.GetOwnerPlayer() == player)
                     {
                         if (!movedItem.CanStack(targetItem))
                         {
@@ -488,10 +395,10 @@ namespace Oxide.Plugins
             {
                 if (backpackContainer != null && !_cacheBackpackContainers.Contains(backpackContainer.uid.Value))
                 {
-                    AddBackpackToCache(backpackContainer);
+                    CacheAddBackpack(backpackContainer);
                 }
             }
-            catch(System.Exception ex)
+            catch (System.Exception ex)
             {
                 PrintError($"OnBackpackOpened threw exception\n:{ex}");
                 throw;
@@ -502,30 +409,30 @@ namespace Oxide.Plugins
 
         #region Core Methods
 
-        public void CacheCreatePrefabIDs()
+        public void CachePrefabIDs()
         {
             _playerPrefabID = StringPool.Get("assets/prefabs/player/player.prefab");
 
-            if (!_configData.StacksSettings.Containers.ContainsKey("Backpack"))
+            if (!_pluginConfig.ContainerMultipliers.ContainsKey("Backpack"))
             {
-                _configData.StacksSettings.Containers["Backpack"] = _configData.GlobalSettings.DefaultContainerMultiplier;
-                SaveConfig();
+                _pluginConfig.ContainerMultipliers["Backpack"] = _pluginConfig.DefaultMultiplier;
+                Config.WriteObject(_pluginConfig);
             }
 
-            _backpackPrefabID = 1;
+            _backpackPrefabID = StringPool.closest;
             while (StringPool.toString.ContainsKey(_backpackPrefabID))
             {
-                _backpackPrefabID += 1000;
+                _backpackPrefabID++;
             }
         }
 
-        public void CacheCreateMultipliers()
+        public void CacheMultipliers()
         {
-            foreach (KeyValuePair<string, float> container in _configData.StacksSettings.Containers)
+            foreach (KeyValuePair<string, float> container in _pluginConfig.ContainerMultipliers)
             {
                 if (container.Key == "Backpack")
                 {
-                    _cacheMultipliers[_backpackPrefabID] = _configData.StacksSettings.Containers["Backpack"];
+                    _cacheMultipliers[_backpackPrefabID] = _pluginConfig.ContainerMultipliers["Backpack"];
                 }
                 else
                 {
@@ -539,7 +446,7 @@ namespace Oxide.Plugins
             }
         }
 
-        public void AddBackpackToCache(ItemContainer itemContainer)
+        public void CacheAddBackpack(ItemContainer itemContainer)
         {
             BaseEntity baseEntity = itemContainer.GetEntityOwner();
 
@@ -550,10 +457,9 @@ namespace Oxide.Plugins
             }
         }
 
-        public bool WeightSystemLoaded()
-        {
-            return WeightSystem != null && WeightSystem.IsLoaded;
-        }
+        public bool IsExcluded(BaseEntity entity, BasePlayer player) => !entity.IsValid() || entity.HasFlag(BaseEntity.Flags.Locked) || entity is BigWheelBettingTerminal || entity is ShopFront || entity is VendingMachine vendingMachine && !vendingMachine.PlayerBehind(player);
+
+        public bool IsUsingShift(BasePlayer player) => permission.UserHasPermission(player.UserIDString, PermissionUseShift) && player.serverInput.IsDown(BUTTON.SPRINT);
 
         public class ItemHelper
         {
@@ -572,11 +478,6 @@ namespace Oxide.Plugins
                 }
 
                 return true;
-            }
-
-            public static bool SplitMoveItem(Item item, int amount, BasePlayer player)
-            {
-                return SplitMoveItem(item, amount, player.inventory);
             }
 
             public static bool SplitMoveItem(Item item, int amount, PlayerInventory inventory)
@@ -611,47 +512,30 @@ namespace Oxide.Plugins
 
         public float GetStackMultiplier(BaseEntity entity)
         {
-            if (entity is LootContainer || entity is BaseCorpse || entity is BasePlayer)
+            switch (entity)
             {
-                return 1f;
+                case LootContainer:
+                case BaseCorpse:
+                case BasePlayer:
+                    return 1f;
             }
 
-            if (entity.net != null && _cacheBackpackEntities.Contains(entity.net.ID.Value))
+            if (_cacheBackpackEntities.Contains(entity.net.ID.Value))
             {
                 return _cacheMultipliers[_backpackPrefabID];
             }
 
-            float multiplier = GetMultiplierByPrefabID(entity.prefabID);
+            float multiplier = _cacheMultipliers[entity.prefabID];
             if (multiplier == 0)
             {
-                multiplier = GetMultiplierByPrefabName(entity.PrefabName);
+                if (!_pluginConfig.ContainerMultipliers.TryGetValue(entity.PrefabName, out multiplier))
+                {
+                    multiplier = _pluginConfig.DefaultMultiplier;
+                    _pluginConfig.ContainerMultipliers[entity.PrefabName] = multiplier;
+                    Config.WriteObject(_pluginConfig);
+                }
+                _cacheMultipliers[entity.prefabID] = multiplier;
             }
-
-            return multiplier;
-        }
-
-        public float GetMultiplierByPrefabID(ulong prefabID)
-        {
-            if (_cacheMultipliers.ContainsKey(prefabID))
-            {
-                return _cacheMultipliers[prefabID];
-            }
-
-            return 0;
-        }
-
-        public float GetMultiplierByPrefabName(string prefabName)
-        {
-            if (_configData.StacksSettings.Containers.TryGetValue(prefabName, out float multiplier))
-            {
-                return multiplier;
-            }
-
-            multiplier = _configData.GlobalSettings.DefaultContainerMultiplier;
-            _configData.StacksSettings.Containers[prefabName] = multiplier;
-            SaveConfig();
-            _cacheMultipliers.Clear();
-            CacheCreateMultipliers();
 
             return multiplier;
         }
@@ -675,6 +559,8 @@ namespace Oxide.Plugins
             Subscribe(nameof(OnItemDropped));
             Subscribe(nameof(OnMaxStackable));
         }
+
+        public void RegisterPermissions() => permission.RegisterPermission(PermissionUseShift, this);
 
         #endregion Helpers
     }
