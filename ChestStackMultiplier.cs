@@ -8,7 +8,7 @@ using Pool = Facepunch.Pool;
 
 namespace Oxide.Plugins
 {
-    [Info("Chest Stack Multiplier", "MON@H", "1.6.0")]
+    [Info("Chest Stack Multiplier", "MON@H", "1.6.1")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStackMultiplier : RustPlugin
@@ -16,6 +16,8 @@ namespace Oxide.Plugins
         #region Variables
 
         private const string PermissionUseShift = "cheststackmultiplier.useshift";
+
+        private static readonly object _true = true;
 
         private readonly Hash<ulong, float> _cacheMultipliers = new();
         private readonly HashSet<ulong> _cacheBackpackContainers = new();
@@ -199,10 +201,18 @@ namespace Oxide.Plugins
                     //Puts($"Moving item {movedItem} into player inventory from container {targetContainerID}");
                 }
             }
+
             ItemContainer targetContainer = playerInventory.FindContainer(targetContainerID);
+            if (targetContainer == null)
+            {
+                return null;
+            }
+
             BaseEntity targetEntity = targetContainer.GetEntityOwner() ?? targetContainer.GetOwnerPlayer();
+
             if (sourceEntity == targetEntity || IsExcluded(targetEntity, player))
             {
+
                 return null;
             }
 
@@ -256,7 +266,7 @@ namespace Oxide.Plugins
                             movedItem?.MarkDirty();
                         }
                         playerInventory.ServerUpdate(0f);
-                        return true;
+                        return _true;
                     }
                 }
                 // Shift Right click into storage container
@@ -333,7 +343,7 @@ namespace Oxide.Plugins
                     }
                 }
                 playerInventory.ServerUpdate(0f);
-                return true;
+                return _true;
             }
             // Prevent Moving Overstacks To Inventory
             if (lootContainer != null)
@@ -347,7 +357,7 @@ namespace Oxide.Plugins
                         {
                             if (targetItem.amount > targetItem.info.stackable)
                             {
-                                return true;
+                                return _true;
                             }
                         }
                     }
