@@ -8,7 +8,7 @@ using Pool = Facepunch.Pool;
 
 namespace Oxide.Plugins
 {
-    [Info("Chest Stack Multiplier", "MON@H", "1.6.1")]
+    [Info("Chest Stack Multiplier", "MON@H", "1.6.2")]
     [Description("Higher stack sizes in storage containers.")]
 
     public class ChestStackMultiplier : RustPlugin
