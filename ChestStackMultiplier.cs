@@ -88,7 +88,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            List<string> invalidValues = Pool.GetList<string>();
+            List<string> invalidValues = Pool.Get<List<string>>();
             foreach (KeyValuePair<string, float> containerMultiplier in config.ContainerMultipliers)
             {
                 if (containerMultiplier.Value > 0)
@@ -103,7 +103,7 @@ namespace Oxide.Plugins
             {
                 config.ContainerMultipliers[invalidValue] = config.DefaultMultiplier;
             }
-            Pool.FreeList(ref invalidValues);
+            Pool.FreeUnmanaged(ref invalidValues);
             return config;
         }
 
@@ -275,7 +275,7 @@ namespace Oxide.Plugins
                     if (IsUsingShift(player))
                     {
                         //Puts($"Shift Right click into storage container {lootContainer}");
-                        List<Item> itemsToMove = Pool.GetList<Item>();
+                        List<Item> itemsToMove = Pool.Get<List<Item>>();
                         int i = 0;
                         foreach (Item item in playerInventory.containerMain.itemList)
                         {
@@ -299,7 +299,7 @@ namespace Oxide.Plugins
                             }
                             i++;
                         }
-                        Pool.FreeList(ref itemsToMove);
+                        Pool.FreeUnmanaged(ref itemsToMove);
                         if (i > 0)
                         {
                             playerInventory.ServerUpdate(0f);
