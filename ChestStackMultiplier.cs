@@ -20,15 +20,15 @@ namespace Oxide.Plugins
 
         private static readonly object True = true;
 
-        private readonly Dictionary<ulong, float> _cacheMultipliers = new Dictionary<ulong, float>();
-        private readonly HashSet<ulong> _cacheBackpackContainers = new HashSet<ulong>();
-        private readonly HashSet<ulong> _cacheBackpackEntities = new HashSet<ulong>();
+        private readonly Dictionary<ulong, float> _cacheMultipliers = new();
+        private readonly HashSet<ulong> _cacheBackpackContainers = new();
+        private readonly HashSet<ulong> _cacheBackpackEntities = new();
 
         // Performance: Batched config writes
         private Timer _configWriteTimer;
 
         // Performance: Player permission cache
-        private readonly Dictionary<string, bool> _shiftPermissionCache = new Dictionary<string, bool>();
+        private readonly Dictionary<string, bool> _shiftPermissionCache = new();
 
         private uint _backpackPrefabID;
         private uint _playerPrefabID;
@@ -37,14 +37,13 @@ namespace Oxide.Plugins
 
         #region Initialization
 
-        private void Init()
-        {
-            HooksUnsubscribe();
-        }
+        private void Init() => HooksUnsubscribe();
 
         private void OnServerInitialized()
         {
             RegisterPermissions();
+            PopulateDefaultContainerMultipliers();
+            ValidateContainerMultipliers();
             CachePrefabIDs();
             CacheMultipliers();
             HooksSubscribe();
@@ -58,10 +57,7 @@ namespace Oxide.Plugins
                 Config.WriteObject(_pluginConfig);
             }
 
-            if (_configWriteTimer is not null)
-            {
-                _configWriteTimer.Destroy();
-            }
+            _configWriteTimer?.Destroy();
         }
 
         #endregion Initialization
@@ -85,10 +81,7 @@ namespace Oxide.Plugins
             public bool IsDirty { get; set; }
         }
 
-        protected override void LoadDefaultConfig()
-        {
-            PrintWarning("Loading Default Config");
-        }
+        protected override void LoadDefaultConfig() => PrintWarning("Loading Default Config");
 
         protected override void LoadConfig()
         {
@@ -107,52 +100,45 @@ namespace Oxide.Plugins
                 config.DefaultMultiplier = DefaultMultiplierValue;
             }
 
-            // Initialize container multipliers if null
-            if (config.ContainerMultipliers is null)
-            {
-                config.ContainerMultipliers = new SortedDictionary<string, float>();
-            }
-
-            // Add missing container multipliers
-            PopulateDefaultContainerMultipliers(config);
-
-            // Validate and fix invalid multipliers
-            ValidateContainerMultipliers(config);
-
+            config.ContainerMultipliers ??= new SortedDictionary<string, float>();
             return config;
         }
 
-        public void PopulateDefaultContainerMultipliers(PluginConfig config)
+        public void PopulateDefaultContainerMultipliers()
         {
-            foreach (ItemDefinition def in ItemManager.GetItemDefinitions())
+            foreach (ItemDefinition itemDefinition in ItemManager.GetItemDefinitions())
             {
-                ItemModDeployable deployable = def.GetComponent<ItemModDeployable>();
-                if (deployable is null || deployable.entityPrefab is null)
+                BoxStorage entity = null;
+
+                if (itemDefinition.GetComponent<ItemModDeployable>() is { entityPrefab.isValid: true } deployableComponent)
+                {
+                    try
+                    {
+                        if (GameManager.server.FindPrefab(deployableComponent.entityPrefab.resourcePath) is { } foundPrefab)
+                        {
+                            entity = foundPrefab.GetComponent<BoxStorage>();
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        PrintError($"GameManager fallback failed for {itemDefinition.shortname}: {ex.Message}");
+                    }
+                }
+
+                if (entity is null || _pluginConfig.ContainerMultipliers.ContainsKey(entity.PrefabName))
                 {
                     continue;
                 }
 
-                BaseEntity prefab = deployable.entityPrefab.GetEntity();
-                if (prefab is null)
-                {
-                    continue;
-                }
-
-                BoxStorage entity = prefab.GetComponent<BoxStorage>();
-                if (entity is null || config.ContainerMultipliers.ContainsKey(entity.PrefabName))
-                {
-                    continue;
-                }
-
-                config.ContainerMultipliers[entity.PrefabName] = config.DefaultMultiplier;
+                _pluginConfig.ContainerMultipliers[entity.PrefabName] = _pluginConfig.DefaultMultiplier;
             }
         }
 
-        public void ValidateContainerMultipliers(PluginConfig config)
+        public void ValidateContainerMultipliers()
         {
             List<string> invalidKeys = Pool.Get<List<string>>();
 
-            foreach (KeyValuePair<string, float> kvp in config.ContainerMultipliers)
+            foreach (KeyValuePair<string, float> kvp in _pluginConfig.ContainerMultipliers)
             {
                 if (kvp.Value <= 0)
                 {
@@ -163,7 +149,7 @@ namespace Oxide.Plugins
 
             for (int i = 0; i < invalidKeys.Count; i++)
             {
-                config.ContainerMultipliers[invalidKeys[i]] = config.DefaultMultiplier;
+                _pluginConfig.ContainerMultipliers[invalidKeys[i]] = _pluginConfig.DefaultMultiplier;
             }
 
             Pool.FreeUnmanaged(ref invalidKeys);
@@ -498,8 +484,7 @@ namespace Oxide.Plugins
                 CollectItemsByType(playerInventory.containerMain, itemsByType);
                 CollectItemsByType(playerInventory.containerBelt, itemsByType);
 
-                List<Item> itemsToMove;
-                if (!itemsByType.TryGetValue(movedItem.info.itemid, out itemsToMove))
+                if (!itemsByType.TryGetValue(movedItem.info.itemid, out List<Item> itemsToMove))
                 {
                     return null;
                 }
@@ -544,8 +529,7 @@ namespace Oxide.Plugins
                 Item item = container.itemList[i];
                 int itemId = item.info.itemid;
 
-                List<Item> items;
-                if (!itemsByType.TryGetValue(itemId, out items))
+                if (!itemsByType.TryGetValue(itemId, out List<Item> items))
                 {
                     items = Pool.Get<List<Item>>();
                     itemsByType[itemId] = items;
@@ -693,8 +677,7 @@ namespace Oxide.Plugins
                     continue;
                 }
 
-                uint id;
-                if (StringPool.toNumber.TryGetValue(container.Key, out id))
+                if (StringPool.toNumber.TryGetValue(container.Key, out uint id))
                 {
                     _cacheMultipliers[id] = container.Value;
                     continue;
@@ -772,8 +755,7 @@ namespace Oxide.Plugins
         {
             string userId = player.UserIDString;
 
-            bool hasPermission;
-            if (!_shiftPermissionCache.TryGetValue(userId, out hasPermission))
+            if (!_shiftPermissionCache.TryGetValue(userId, out bool hasPermission))
             {
                 hasPermission = permission.UserHasPermission(userId, PermissionUseShift);
                 _shiftPermissionCache[userId] = hasPermission;
